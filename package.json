@@ -19,5 +19,8 @@
   "homepage": "https://github.com/ERP-CNAM/bank#readme",
   "devDependencies": {
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
   }
 }
