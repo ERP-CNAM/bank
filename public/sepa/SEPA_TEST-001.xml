@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Document>
+  <CstmrDrctDbtInitn>
+    <GrpHdr>
+      <MsgId>MSG-1768300093351</MsgId>
+      <CreDtTm>2026-01-13T10:28:13.352Z</CreDtTm>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>TEST-001</PmtInfId>
+      <Dbtr>
+        <Nm>Super Mario</Nm>
+        <IBAN>FR76123456789</IBAN>
+      </Dbtr>
+      <RmtInf>
+        <Ustrd>Paiement Facture TEST-001</Ustrd>
+      </RmtInf>
+    </PmtInf>
+  </CstmrDrctDbtInitn>
+</Document>
