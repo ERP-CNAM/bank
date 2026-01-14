@@ -1,62 +1,48 @@
-import express, { Request, Response } from 'express';
-import cors from 'cors';
-import { PaymentController } from './modules/payments/payment.controller';
+import express from 'express'
+import cors from 'cors'
+import { env } from './config/env'
+import { registerService } from './core/connect'
+import { PaymentService } from './modules/payments/payment.service'
 
-const app = express();
-const port = 3004; // Port officiel du Groupe 4
+const app = express()
+app.use(cors())
+app.use(express.json())
 
-app.use(cors());
-app.use(express.json());
+const paymentService = new PaymentService()
 
-const controller = new PaymentController();
+// Middleware pour gérer le format d'enveloppe de Connect
+app.use((req: any, res: any, next: any) => {
+    // Si la requête vient de Connect, le payload est à l'intérieur
+    if (req.body && req.body.payload && req.body.apiKey) {
+        req.body = req.body.payload
+    }
+    next()
+})
 
-// --- Fonction pour répondre au format standard Connect ---
-const sendResponse = (res: Response, success: boolean, message: string, payload: any = null) => {
-    res.json({
-        success: success,
-        status: success ? "success" : "error",
-        message: message,
-        payload: payload
-    });
-};
+// Route de santé
+app.get('/ping', (req, res) => {
+    res.json({ success: true, message: 'Pong from BANK' })
+})
 
-// --- Routes ---
-
-// 1. Check de santé (pour Connect)
-app.get('/', (req, res) => {
-    sendResponse(res, true, "Service Bank is online");
-});
-
-// 2. Recevoir un paiement
-app.post('/api/payment', async (req, res) => {
+// Route principale pour déclencher le cycle de facturation/prélèvement
+// A appeler avec { "executionDate": "2026-07-01" }
+app.post('/trigger-sync', async (req, res) => {
     try {
-        console.log("Reçu demande:", req.body);
-        if (!req.body.invoiceRef || !req.body.amount) {
-            throw new Error("Données manquantes (invoiceRef ou amount)");
-        }
-
-        const result = await controller.processPayment(req.body);
-        sendResponse(res, true, "Traitement effectué", result);
+        const date =
+            req.body.executionDate || new Date().toISOString().split('T')[0]
+        const result = await paymentService.runMonthlyProcess(date)
+        res.json({ success: true, payload: result })
     } catch (error: any) {
-        console.error(error);
-        sendResponse(res, false, error.message || "Erreur interne");
+        console.error(error)
+        res.status(500).json({ success: false, message: error.message })
     }
-});
-
-// 3. Vérifier un statut
-app.get('/api/payment/:ref', (req, res) => {
-    const result = controller.getTransactionStatus(req.params.ref);
-    if (result) {
-        sendResponse(res, true, "Transaction trouvée", result);
-    } else {
-        sendResponse(res, false, "Transaction inconnue");
-    }
-});
+})
 
 // Lancement
-app.listen(port, () => {
-    console.log(`=========================================`);
-    console.log(`[BANK] Serveur démarré sur le port ${port}`);
-    console.log(`[BANK] Prêt à recevoir des requêtes`);
-    console.log(`=========================================`);
-});
+app.listen(env.PORT, () => {
+    console.log(`🏦 BANK Service listening on port ${env.PORT}`)
+    // Attendre que les autres services soient prêts dans Docker
+    setTimeout(() => {
+        registerService()
+    }, 5000)
+})
