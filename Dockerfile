@@ -13,8 +13,10 @@ RUN npm install
 COPY . .
 
 # Build de l'application TypeScript
-# Assurez-vous que votre script "build" dans package.json est "tsc" ou équivalent
 RUN npm run build
+
+# Suppression des dépendances de développement pour alléger l'image finale
+RUN npm prune --production
 
 # Production stage
 FROM gcr.io/distroless/nodejs22-debian12 AS runner
