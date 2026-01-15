@@ -1,7 +1,7 @@
 # Build stage
 FROM node:22-alpine AS builder
 
-WORKDIR /app
+WORKDIR /erp-cnam-bank
 
 # Copie des fichiers de dépendances
 COPY package*.json ./
@@ -17,33 +17,33 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:22-alpine AS runner
+FROM gcr.io/distroless/nodejs22-debian12 AS runner
 
-WORKDIR /app
+WORKDIR /erp-cnam-bank
 
 ENV NODE_ENV=production
 
 # Copie uniquement les fichiers nécessaires depuis le stage de build
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /erp-cnam-bank/package*.json ./
 # Installation uniquement des dépendances de production
 RUN npm install --production
 
 # Copie du code compilé (le dossier dist)
 # Note: Si votre tsconfig.json a "outDir": "./dist", la structure sera préservée
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /erp-cnam-bank/dist ./dist
 
 # Création des répertoires pour les fichiers générés (volumes docker)
 # Cela évite les erreurs de permissions si le dossier n'existe pas
 RUN mkdir -p public/invoices public/sepa public/cb data
 
 # Changement de propriétaire pour l'utilisateur non-root "node"
-RUN chown -R node:node /app
+RUN chown -R node:node /erp-cnam-bank
 
 # Utilisateur non-root pour la sécurité
 USER node
 
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
-EXPOSE 3000
+EXPOSE 3004
 
 # Commande de démarrage
 # Vérifiez si votre build génère dist/index.js ou dist/src/index.js
