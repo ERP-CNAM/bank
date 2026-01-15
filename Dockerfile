@@ -26,20 +26,15 @@ WORKDIR /erp-cnam-bank
 ENV NODE_ENV=production
 
 # Copie uniquement les fichiers nécessaires depuis le stage de build
-COPY --from=builder /erp-cnam-bank/package*.json ./
-# Installation uniquement des dépendances de production
-RUN npm install --production
+COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/package*.json ./
 
 # Copie du code compilé (le dossier dist)
-# Note: Si votre tsconfig.json a "outDir": "./dist", la structure sera préservée
-COPY --from=builder /erp-cnam-bank/dist ./dist
+COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/dist ./dist
+COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/node_modules ./node_modules
 
-# Création des répertoires pour les fichiers générés (volumes docker)
-# Cela évite les erreurs de permissions si le dossier n'existe pas
-RUN mkdir -p public/invoices public/sepa public/cb data
-
-# Changement de propriétaire pour l'utilisateur non-root "node"
-RUN chown -R node:node /erp-cnam-bank
+# Copie des fichiers statiques nécessaires
+COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/public ./public
+COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/data ./data
 
 # Utilisateur non-root pour la sécurité
 USER node
@@ -47,6 +42,4 @@ USER node
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
 EXPOSE 3004
 
-# Commande de démarrage
-# Vérifiez si votre build génère dist/index.js ou dist/src/index.js
 CMD ["node", "dist/src/index.js"]
