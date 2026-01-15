@@ -19,7 +19,7 @@ export const registerService = async () => {
                 routes: [
                     { path: 'trigger-sync', method: 'POST', permission: 0 }, // Route pour lancer le traitement manuellement
                     { path: 'ping', method: 'GET', permission: 0 },
-                    { path: 'api/payment', method: 'POST', permission: 0 }, // Route adaptée à ton index.ts
+                    { path: 'api/payment', method: 'POST', permission: 0 }, // Route adaptée à index.ts
                     { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
                 ],
                 listeningPort: Number(env.PORT),

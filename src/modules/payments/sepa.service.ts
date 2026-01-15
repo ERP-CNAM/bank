@@ -3,8 +3,8 @@ import fs from 'fs'
 import path from 'path'
 
 export class SepaService {
-    private sepaFolder = path.join(__dirname, '../../../../public/sepa')
-    private cbFolder = path.join(__dirname, '../../../../public/cb')
+    private sepaFolder = path.join(__dirname, '../../../public/sepa')
+    private cbFolder = path.join(__dirname, '../../../public/cb')
 
     constructor() {
         if (!fs.existsSync(this.sepaFolder))
