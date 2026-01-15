@@ -2,6 +2,8 @@ import { callService } from '../../core/connect'
 import { InvoiceService } from '../invoices/invoice.service'
 import { SepaService } from './sepa.service'
 import { DataManager } from '../../utils/data.manager'
+import { notifyMoney } from '../notifications/notifier'
+import { BankOperationDTO } from './bank.response'
 
 export class PaymentService {
     private invoiceService = new InvoiceService()
@@ -59,7 +61,9 @@ export class PaymentService {
         // 4. Générer les factures (PDF/FacturX) pour archivage
         await this.invoiceService.processInvoiceDocuments(orders)
 
-        // 5. Simuler le traitement bancaire (Intégration des relevés)
+        // 5. Simulation traitement & Préparation Notification MONEY
+        const moneyOperations: BankOperationDTO[] = []
+
         // Ici, on simule que la banque a traité les fichiers et nous renvoie des statuts
         const updates = orders.map((order: any) => {
             // Simulation : 10% de rejet aléatoire
@@ -74,6 +78,15 @@ export class PaymentService {
                 status,
                 processedAt: new Date().toISOString(),
                 files: { sepa: sepaFile, cb: cardFile },
+            })
+
+            // Construction de l'objet pour MONEY
+            moneyOperations.push({
+                executionDate: executionDate,
+                invoiceRef: order.invoiceRef, // Le champ doit correspondre (invoiceRef ou id selon le BACK)
+                amount: order.amount,
+                paymentMethod: order.paymentMethod,
+                status: isRejected ? 'REJECTED' : 'PAID', // Money attend souvent 'PAID' au lieu de 'EXECUTED'
             })
 
             // Format attendu par le BACK pour le webhook
@@ -93,13 +106,82 @@ export class PaymentService {
             console.error('❌ Echec de la notification au BACK')
         }
 
-        // Optionnel : Notifier MONEY si besoin (le sujet dit "aux groupes qui ont besoin", le BACK s'en charge souvent, mais on peut notifier money aussi)
-        // await callService('MONEY', ...);
+        // Notification MONEY. On envoie toutes les opérations d'un coup
+        if (moneyOperations.length > 0) {
+            await notifyMoney(moneyOperations)
+        }
 
         return {
             success: true,
             processed: orders.length,
             files: { sepa: sepaFile, card: cardFile },
         }
+    }
+
+    public async processPayment(data: any) {
+        // 1. Initialisation de la transaction
+        const transaction = {
+            ...data,
+            status: 'PROCESSING',
+            receivedAt: new Date().toISOString(),
+            files: {} as any,
+        }
+
+        // Sauvegarde initiale
+        this.dataManager.save(transaction)
+
+        try {
+            console.log(`[BANK] Traitement de la facture ${data.invoiceRef}`)
+
+            // 2. Génération des documents de facturation (Consigne: PDF + FacturX)
+            const pdfPath = await this.invoiceService.createPdf(data)
+            const facturxPath = await this.invoiceService.createFacturX(data)
+
+            transaction.files.pdf = pdfPath
+            transaction.files.facturx = facturxPath
+
+            // 3. Génération des fichiers bancaires (Consigne: SEPA ou CB)
+            // Note: SepaService a été adapté pour gérer des listes, on lui passe un tableau d'un élément
+            const executionDate = new Date().toISOString().split('T')[0]
+
+            if (data.paymentMethod === 'SEPA') {
+                const sepaFile = this.sepaService.generateSepaFile(
+                    [data],
+                    executionDate,
+                )
+                transaction.files.sepa = sepaFile
+            } else if (data.paymentMethod === 'CARD') {
+                const cbFile = this.sepaService.generateCardFile(
+                    [data],
+                    executionDate,
+                )
+                transaction.files.cb = cbFile
+            }
+
+            // 4. Simulation du résultat bancaire (Intégration relevés)
+            // Si montant > 2000, on simule un rejet pour l'exemple, sinon succès
+            const isSuccess = data.amount < 2000
+
+            transaction.status = isSuccess ? 'COMPLETED' : 'REJECTED'
+            transaction.processedAt = new Date().toISOString()
+
+            // Sauvegarde finale
+            this.dataManager.save(transaction)
+
+            console.log(
+                `[BANK] Résultat pour ${data.invoiceRef}: ${transaction.status}`,
+            )
+            return transaction
+        } catch (error: any) {
+            console.error('[BANK] Erreur:', error)
+            transaction.status = 'ERROR'
+            transaction.error = error.message
+            this.dataManager.save(transaction)
+            throw error
+        }
+    }
+
+    public getTransactionStatus(ref: string) {
+        return this.dataManager.get(ref)
     }
 }

@@ -1,23 +1,23 @@
-import axios from 'axios';
-import { BankOperationDTO } from '../payments/bank.response';
+import { callService } from '../../core/connect'
+import { BankOperationDTO } from '../payments/bank.response'
 
-const CONNECT_URL = process.env.CONNECT_URL || 'http://localhost:3000';
+const CONNECT_URL = process.env.CONNECT_URL || 'http://localhost:3000'
 
 export async function notifyMoney(
-  operation: BankOperationDTO
+    operation: BankOperationDTO | BankOperationDTO[],
 ): Promise<void> {
+    const payload = Array.isArray(operation) ? operation : [operation]
+    try {
+        // Appel via Connect : Service "MONEY", Route "/bank/operations" (selon spec du groupe 3)
+        await callService('MONEY', '/bank/operations', 'POST', payload)
 
-  try {
-    await axios.post(`${CONNECT_URL}/connect`, {
-      clientName: 'BANK',
-      clientVersion: '1.0.0',
-      serviceName: 'MONEY',
-      path: '/bank/operations',
-      payload: [operation]
-    });
-
-    console.log(`Application MONEY notifiée pour ${operation.invoiceRef}`);
-  } catch (error) {
-    console.error('Erreur notification MONEY', error);
-  }
+        console.log(
+            `[NOTIF] Application MONEY notifiée pour ${payload.length} opération(s).`,
+        )
+    } catch (error: any) {
+        // On ne bloque pas le processus si Money est éteint, mais on log l'erreur
+        console.error(
+            '[NOTIF ERROR] Impossible de notifier MONEY (Service éteint ou erreur Connect).',
+        )
+    }
 }

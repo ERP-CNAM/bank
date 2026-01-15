@@ -16,13 +16,11 @@ export const registerService = async () => {
                 name: env.SERVICE_NAME,
                 description: 'Module bancaire et facturation',
                 version: env.SERVICE_VERSION,
-                // routes: [
-                //     { path: 'api/payment', method: 'POST', permission: 0 }, // Route adaptée à ton index.ts
-                //     { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
-                // ],
                 routes: [
                     { path: 'trigger-sync', method: 'POST', permission: 0 }, // Route pour lancer le traitement manuellement
                     { path: 'ping', method: 'GET', permission: 0 },
+                    { path: 'api/payment', method: 'POST', permission: 0 }, // Route adaptée à ton index.ts
+                    { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
                 ],
                 listeningPort: Number(env.PORT),
                 overrideIp: env.SERVICE_HOST,
@@ -62,6 +60,7 @@ export const callService = async (
             payload: payload,
         })
         if (!response.data.success) {
+            console.error(`Connect Error Response:`, response.data)
             throw new Error(`Connect Error: ${response.data.message}`)
         }
         return response.data.payload

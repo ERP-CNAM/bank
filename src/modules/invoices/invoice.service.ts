@@ -22,16 +22,17 @@ export class InvoiceService {
         return generated
     }
 
-    private async createFacturX(order: any): Promise<string> {
+    public async createFacturX(order: any): Promise<string> {
         // Format Fictif JSON pour FacturX
         const data = {
             type: 'FACTUR-X-MINIMUM',
             id: order.invoiceRef,
             date: new Date().toISOString(),
             seller: { name: 'GAMERS ERP' },
-            buyer: { id: order.userId },
+            buyer: { id: order.userId, name: order.clientName },
             total: order.amount,
             currency: 'EUR',
+            paymentMethod: order.paymentMethod,
         }
 
         const filename = `${order.invoiceRef}_FX.json`
@@ -42,29 +43,41 @@ export class InvoiceService {
         return filename
     }
 
-    private createPdf(order: any): Promise<string> {
+    public createPdf(data: any): Promise<string> {
         return new Promise((resolve, reject) => {
             const doc = new PDFDocument()
-            const filename = `${order.invoiceRef}.pdf`
+            const filename = `FACT_${data.invoiceRef}.pdf`
             const filepath = path.join(this.folder, filename)
             const stream = fs.createWriteStream(filepath)
 
             doc.pipe(stream)
 
-            doc.fontSize(20).text('FACTURE', { align: 'center' })
+            // En-tête
+            doc.fontSize(20).text('FACTURE GAMERS ERP', { align: 'center' })
             doc.moveDown()
-            doc.fontSize(12).text(`Ref: ${order.invoiceRef}`)
-            doc.text(`Date: ${new Date().toLocaleDateString()}`)
-            doc.text(`Client ID: ${order.userId}`)
+
+            // Détails
+            doc.fontSize(12)
+            doc.text(`Référence : ${data.invoiceRef}`)
+            doc.text(`Date      : ${new Date().toLocaleDateString()}`)
             doc.moveDown()
-            doc.text(`Montant à prélever: ${order.amount} EUR`)
+
+            doc.text(`Client    : ${data.clientName || 'Client Inconnu'}`)
+            doc.text(`ID Client : ${data.userId}`)
             doc.moveDown()
-            doc.text(`Mode de paiement: ${order.paymentMethod}`)
+
+            // Montant
+            doc.fontSize(14).text(`Montant à payer : ${data.amount} EUR`, {
+                align: 'right',
+            })
+            doc.fontSize(10).text(`Moyen de paiement : ${data.paymentMethod}`, {
+                align: 'right',
+            })
 
             doc.end()
 
             stream.on('finish', () => resolve(filename))
-            stream.on('error', reject)
+            stream.on('error', (err) => reject(err))
         })
     }
 }
