@@ -1,0 +1,18 @@
+[
+  {
+    "invoiceRef": "TEST-LOCAL-001",
+    "amount": 49.99,
+    "clientName": "Testeur Local",
+    "userId": "user-123",
+    "paymentMethod": "SEPA",
+    "iban": "FR761234567890",
+    "status": "COMPLETED",
+    "receivedAt": "2026-01-15T19:08:48.185Z",
+    "files": {
+      "pdf": "FACT_TEST-LOCAL-001.pdf",
+      "facturx": "TEST-LOCAL-001_FX.json",
+      "sepa": "SEPA_2026-01-15_1768504128484.xml"
+    },
+    "processedAt": "2026-01-15T19:08:48.487Z"
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "type": "FACTUR-X-MINIMUM",
+  "id": "TEST-LOCAL-001",
+  "date": "2026-01-15T19:08:48.448Z",
+  "seller": {
+    "name": "GAMERS ERP"
+  },
+  "buyer": {
+    "id": "user-123",
+    "name": "Testeur Local"
+  },
+  "total": 49.99,
+  "currency": "EUR",
+  "paymentMethod": "SEPA"
+}
