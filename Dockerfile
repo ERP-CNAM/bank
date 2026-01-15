@@ -37,9 +37,9 @@ COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/public ./public
 COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/data ./data
 
 # Utilisateur non-root pour la sécurité
-USER node
+USER nonroot:nonroot
 
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
 EXPOSE 3004
 
-CMD ["node", "dist/src/index.js"]
+CMD ["dist/index.js"]
