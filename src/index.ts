@@ -32,6 +32,7 @@ const sendResponse = (
         message: message,
         payload: payload,
     })
+    console.log(`Response sent: status: ${success} - ${message}`)
 }
 
 // Route de santé
@@ -81,10 +82,11 @@ app.get('/api/payment/:ref', (req, res) => {
 })
 
 // Lancement
-app.listen(env.PORT, () => {
+app.listen(env.BANK_PORT, () => {
     console.log(`=========================================`)
-    console.log(`🏦 BANK Service démarré sur le port ${env.PORT}`)
+    console.log(`🏦 BANK Service démarré sur le port ${env.BANK_PORT}`)
     console.log(`🌍 Environnement : ${process.env.NODE_ENV || 'dev'}`)
+    console.log(`🐋 Docker IP : ${env.CONNECT_URL || 'not set'}`)
     console.log(`=========================================`)
     // Attendre que les autres services soient prêts dans Docker
     setTimeout(() => {

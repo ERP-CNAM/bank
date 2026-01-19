@@ -22,7 +22,7 @@ export const registerService = async () => {
                     { path: 'api/payment', method: 'POST', permission: 0 }, // Route adaptée à index.ts
                     { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
                 ],
-                listeningPort: Number(env.PORT),
+                listeningPort: Number(env.BANK_PORT),
                 overrideIp: env.SERVICE_HOST,
                 apiKey: env.CONNECT_API_KEY,
             })

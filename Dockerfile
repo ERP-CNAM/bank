@@ -1,7 +1,7 @@
 # Build stage
 FROM node:22-alpine AS builder
 
-WORKDIR /erp-cnam-bank
+WORKDIR /erp-bank
 
 # Copie des fichiers de dépendances
 COPY package*.json ./
@@ -20,24 +20,38 @@ RUN npm prune --production
 
 # Production stage
 FROM gcr.io/distroless/nodejs22-debian12 AS runner
-
-WORKDIR /erp-cnam-bank
+WORKDIR /erp-bank
 
 ENV NODE_ENV=production
 
 # Copie uniquement les fichiers nécessaires depuis le stage de build
-COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/package*.json ./
+COPY --from=builder --chown=nonroot:nonroot /erp-bank/package*.json ./
 
 # Copie du code compilé (le dossier dist)
-COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/dist ./dist
-COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/node_modules ./node_modules
+COPY --from=builder --chown=nonroot:nonroot /erp-bank/dist ./dist
+COPY --from=builder --chown=nonroot:nonroot /erp-bank/node_modules ./node_modules
 
 # Copie des fichiers statiques nécessaires
-COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/public ./public
-COPY --from=builder --chown=nonroot:nonroot /erp-cnam-bank/data ./data
+COPY --from=builder --chown=nonroot:nonroot /erp-bank/public ./public
+COPY --from=builder --chown=nonroot:nonroot /erp-bank/data ./data
 
 # Utilisateur non-root pour la sécurité
 USER nonroot:nonroot
+# # TEST ----------------------------------------------------------------
+# # Création d'un utilisateur non-root (node existe déjà dans l'image alpine)
+# # On s'assure que les dossiers nécessaires existent et ont les bonnes permissions
+# RUN mkdir -p public data && chown -R node:node /erp-bank
+
+# # Copie des fichiers depuis le builder
+# # On utilise l'utilisateur 'node' propriétaire des fichiers
+# COPY --from=builder --chown=node:node /erp-bank/package*.json ./
+# COPY --from=builder --chown=node:node /erp-bank/dist ./dist
+# COPY --from=builder --chown=node:node /erp-bank/node_modules ./node_modules
+# # Copie optionnelle si vous avez des fichiers statiques initiaux
+# COPY --from=builder --chown=node:node /erp-bank/public ./public
+# COPY --from=builder --chown=node:node /erp-bank/data ./data
+
+# USER node
 
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
 EXPOSE 3004
