@@ -22,7 +22,7 @@ export class PaymentService {
         let orders: any[] = []
         try {
             orders = await callService(
-                'BACK',
+                'back',
                 'exports/banking/direct-debits',
                 'GET',
                 { executionDate },
@@ -100,7 +100,7 @@ export class PaymentService {
         // 6. Envoyer les résultats au BACK (et implicitement aux autres via le BACK qui mettra à jour les statuts)
         console.log(`📤 Envoi des mises à jour de paiement au BACK...`)
         try {
-            await callService('BACK', 'bank/payment-updates', 'POST', updates)
+            await callService('back', 'bank/payment-updates', 'POST', updates)
             console.log('✅ BACK notifié avec succès.')
         } catch (e) {
             console.error('❌ Echec de la notification au BACK')
