@@ -37,21 +37,6 @@ COPY --from=builder --chown=nonroot:nonroot /erp-bank/data ./data
 
 # Utilisateur non-root pour la sécurité
 USER nonroot:nonroot
-# # TEST ----------------------------------------------------------------
-# # Création d'un utilisateur non-root (node existe déjà dans l'image alpine)
-# # On s'assure que les dossiers nécessaires existent et ont les bonnes permissions
-# RUN mkdir -p public data && chown -R node:node /erp-bank
-
-# # Copie des fichiers depuis le builder
-# # On utilise l'utilisateur 'node' propriétaire des fichiers
-# COPY --from=builder --chown=node:node /erp-bank/package*.json ./
-# COPY --from=builder --chown=node:node /erp-bank/dist ./dist
-# COPY --from=builder --chown=node:node /erp-bank/node_modules ./node_modules
-# # Copie optionnelle si vous avez des fichiers statiques initiaux
-# COPY --from=builder --chown=node:node /erp-bank/public ./public
-# COPY --from=builder --chown=node:node /erp-bank/data ./data
-
-# USER node
 
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
 EXPOSE 3004
