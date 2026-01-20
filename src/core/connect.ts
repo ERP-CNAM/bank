@@ -9,13 +9,13 @@ export const registerService = async () => {
     while (!registered) {
         try {
             console.log(
-                `🔄 Tentative d'enregistrement de ${env.SERVICE_NAME} auprès de Connect (${env.CONNECT_URL})...`,
+                `🔄 Tentative d'enregistrement de ${env.BANK_SERVICE_NAME} auprès de Connect (${env.CONNECT_URL})...`,
             )
 
             await axios.post(`${env.CONNECT_URL}/register`, {
-                name: env.SERVICE_NAME,
+                name: env.BANK_SERVICE_NAME,
                 description: 'Module bancaire et facturation',
-                version: env.SERVICE_VERSION,
+                version: env.BANK_SERVICE_VERSION,
                 routes: [
                     { path: 'trigger-sync', method: 'POST', permission: 0 }, // Route pour lancer le traitement manuellement
                     { path: 'ping', method: 'GET', permission: 0 },
@@ -52,8 +52,8 @@ export const callService = async (
         console.log(`Calling ${targetService} via Connect: ${method} ${path}`)
         const response = await axios.post(`${env.CONNECT_URL}/connect`, {
             apiKey: env.CONNECT_API_KEY,
-            clientName: env.SERVICE_NAME,
-            clientVersion: env.SERVICE_VERSION,
+            clientName: env.BANK_SERVICE_NAME,
+            clientVersion: env.BANK_SERVICE_VERSION,
             serviceName: targetService,
             path: path,
             debug: true,
