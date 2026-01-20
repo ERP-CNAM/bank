@@ -2,8 +2,6 @@ import { callService } from '../../core/connect'
 import { InvoiceService } from '../invoices/invoice.service'
 import { SepaService } from './sepa.service'
 import { DataManager } from '../../utils/data.manager'
-import { notifyMoney } from '../notifications/notifier'
-import { BankOperationDTO } from './bank.response'
 
 export class PaymentService {
     private invoiceService = new InvoiceService()
@@ -26,15 +24,15 @@ export class PaymentService {
                 'back',
                 `exports/banking/direct-debits${queryParams}`,
                 'GET',
-                {},
+                null,
             )
-        } catch (e) {
+        } catch (e: any) {
             console.error(
-                'Erreur lors de la récupération des ordres depuis BACK. Utilisation de données vides.',
+                `Erreur lors de la récupération des ordres depuis BACK: ${e.message}`,
             )
             return {
                 success: false,
-                message: 'Impossible de récupérer les ordres du BACK',
+                message: `Impossible de récupérer les ordres du BACK: ${e.message}`,
             }
         }
 
@@ -62,10 +60,7 @@ export class PaymentService {
         // 4. Générer les factures (PDF/FacturX) pour archivage
         await this.invoiceService.processInvoiceDocuments(orders)
 
-        // 5. Simulation traitement & Préparation Notification MONEY
-        const moneyOperations: BankOperationDTO[] = []
-
-        // Ici, on simule que la banque a traité les fichiers et nous renvoie des statuts
+        // 5. Simulation traitement & Préparation retrour BACK
         const updates = orders.map((order: any) => {
             // Simulation : 10% de rejet aléatoire
             const isRejected = Math.random() < 0.1
@@ -81,35 +76,21 @@ export class PaymentService {
                 files: { sepa: sepaFile, cb: cardFile },
             })
 
-            // Construction de l'objet pour MONEY
-            moneyOperations.push({
-                executionDate: executionDate,
-                invoiceRef: order.invoiceRef, // Le champ doit correspondre (invoiceRef ou id selon le BACK)
-                amount: order.amount,
-                paymentMethod: order.paymentMethod,
-                status: isRejected ? 'REJECTED' : 'PAID', // Money attend souvent 'PAID' au lieu de 'EXECUTED'
-            })
-
             // Format attendu par le BACK pour le webhook
             return {
-                invoiceId: order.invoiceId, // Attention: le back envoie invoiceId, vérifiez bien le modèle t_DirectDebitOrder du back
+                invoiceId: order.invoiceId,
                 status: status,
                 rejectionReason: reason,
             }
         })
 
-        // 6. Envoyer les résultats au BACK (et implicitement aux autres via le BACK qui mettra à jour les statuts)
+        // 6. Envoyer les résultats au BACK
         console.log(`📤 Envoi des mises à jour de paiement au BACK...`)
         try {
             await callService('back', 'bank/payment-updates', 'POST', updates)
             console.log('✅ BACK notifié avec succès.')
         } catch (e) {
-            console.error('❌ Echec de la notification au BACK')
-        }
-
-        // Notification MONEY. On envoie toutes les opérations d'un coup
-        if (moneyOperations.length > 0) {
-            await notifyMoney(moneyOperations)
+            console.error(`❌ Echec de la notification au BACK: ${e}`)
         }
 
         return {
@@ -172,6 +153,45 @@ export class PaymentService {
             console.log(
                 `[BANK] Résultat pour ${data.invoiceRef}: ${transaction.status}`,
             )
+            // 5. Notification du BACK via Connect
+            if (data.invoiceId) {
+                console.log(
+                    `[BANK] Notification du BACK pour l'invoiceId: ${data.invoiceId}...`,
+                )
+
+                // Préparation du payload selon le format attendu par le Back
+                // Le Back attend un tableau d'objets { invoiceId, status, rejectionReason }
+                const updatePayload = [
+                    {
+                        invoiceId: data.invoiceId,
+                        status: isSuccess ? 'EXECUTED' : 'REJECTED',
+                        rejectionReason: isSuccess
+                            ? null
+                            : 'Rejet simulé (Paiement unitaire)',
+                    },
+                ]
+
+                try {
+                    await callService(
+                        'back',
+                        '/bank/payment-updates',
+                        'POST',
+                        updatePayload,
+                    )
+                    console.log(
+                        '✅ BACK notifié avec succès (Paiement unitaire).',
+                    )
+                } catch (err: any) {
+                    console.error(
+                        `❌ Erreur notification BACK : ${err.message}`,
+                    )
+                }
+            } else {
+                console.warn(
+                    "[BANK] Pas d'invoiceId fourni, impossible de notifier le BACK.",
+                )
+            }
+
             return transaction
         } catch (error: any) {
             console.error('[BANK] Erreur:', error)

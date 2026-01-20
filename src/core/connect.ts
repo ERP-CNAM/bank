@@ -50,7 +50,8 @@ export const callService = async (
 ) => {
     try {
         console.log(`Calling ${targetService} via Connect: ${method} ${path}`)
-        const response = await axios.post(`${env.CONNECT_URL}/connect`, {
+
+        const axiosResponse = await axios({
             method: method,
             url: `${env.CONNECT_URL}/connect`,
             data: {
@@ -63,16 +64,19 @@ export const callService = async (
                 payload: payload,
             },
         })
-        if (!response.data.success) {
-            console.error(`Connect Error Response:`, response.data)
-            throw new Error(`Connect Error: ${response.data.message}`)
+
+        const response = axiosResponse.data
+
+        console.log(`Response : `, response)
+
+        if (!response.success) {
+            console.error(`Connect Error Response:`, response)
+            throw new Error(`Connect Error: ${response.message}`)
         }
-        return response.data.payload
+        return response.payload
     } catch (error: any) {
-        console.error(
-            `Erreur lors de l'appel à ${targetService} :`,
-            error.message,
-        )
-        throw error
+        const msg = error.response?.data?.message || error.message
+        console.error(`Erreur lors de l'appel à ${targetService} : ${msg}`)
+        throw new Error(msg)
     }
 }
