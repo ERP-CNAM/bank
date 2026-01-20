@@ -51,13 +51,17 @@ export const callService = async (
     try {
         console.log(`Calling ${targetService} via Connect: ${method} ${path}`)
         const response = await axios.post(`${env.CONNECT_URL}/connect`, {
-            apiKey: env.CONNECT_API_KEY,
-            clientName: env.BANK_SERVICE_NAME,
-            clientVersion: env.BANK_SERVICE_VERSION,
-            serviceName: targetService,
-            path: path,
-            debug: true,
-            payload: payload,
+            method: method,
+            url: `${env.CONNECT_URL}/connect`,
+            data: {
+                apiKey: env.CONNECT_API_KEY,
+                clientName: env.BANK_SERVICE_NAME,
+                clientVersion: env.BANK_SERVICE_VERSION,
+                serviceName: targetService,
+                path: path,
+                debug: true,
+                payload: payload,
+            },
         })
         if (!response.data.success) {
             console.error(`Connect Error Response:`, response.data)
