@@ -21,11 +21,12 @@ export class PaymentService {
         // Connect transforme le payload en query params pour les GET (selon le standard Connect/Back)
         let orders: any[] = []
         try {
+            const queryParams = `?executionDate=${executionDate}`
             orders = await callService(
                 'back',
-                'exports/banking/direct-debits',
+                `exports/banking/direct-debits${queryParams}`,
                 'GET',
-                { executionDate },
+                {},
             )
         } catch (e) {
             console.error(
