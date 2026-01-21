@@ -62,6 +62,9 @@ export class ConnectAdapter implements IBankProvider {
         let registered = false
         while (!registered) {
             try {
+                console.log(
+                    `🔄 Tentative d'enregistrement de ${env.BANK_SERVICE_NAME} auprès de Connect (${env.CONNECT_URL})...`,
+                )
                 await axios.post(`${env.CONNECT_URL}/register`, {
                     name: env.BANK_SERVICE_NAME,
                     version: env.BANK_SERVICE_VERSION,
