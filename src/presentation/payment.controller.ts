@@ -18,7 +18,11 @@ export class PaymentController {
             const date =
                 req.body.executionDate || new Date().toISOString().split('T')[0]
             const result = await this.service.runMonthlyProcess(date)
-            res.json({ success: true, payload: result })
+            res.json({
+                success: true,
+                message: 'Synchronisation terminée',
+                payload: result,
+            })
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message })
         }
@@ -30,7 +34,11 @@ export class PaymentController {
             if (!req.body.invoiceRef || !req.body.amount)
                 throw new Error('Données manquantes')
             const result = await this.service.processPayment(req.body)
-            res.json({ success: true, payload: result })
+            res.json({
+                success: true,
+                message: 'Paiement traité avec succès',
+                payload: result,
+            })
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message })
         }
@@ -41,7 +49,12 @@ export class PaymentController {
         const result = await this.service.getTransactionStatus(
             req.params.ref as string,
         )
-        if (result) res.json({ success: true, payload: result })
+        if (result)
+            res.json({
+                success: true,
+                message: 'Statut récupéré avec succès',
+                payload: result,
+            })
         else res.status(404).json({ success: false, message: 'Non trouvé' })
     }
 }
