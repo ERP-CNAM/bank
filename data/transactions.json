@@ -7,12 +7,25 @@
     "paymentMethod": "SEPA",
     "iban": "FR761234567890",
     "status": "COMPLETED",
-    "receivedAt": "2026-01-15T19:08:48.185Z",
+    "receivedAt": "2026-01-22T14:07:38.387Z",
     "files": {
       "pdf": "FACT_TEST-LOCAL-001.pdf",
-      "facturx": "TEST-LOCAL-001_FX.json",
-      "sepa": "SEPA_2026-01-15_1768504128484.xml"
-    },
-    "processedAt": "2026-01-15T19:08:48.487Z"
+      "facturx": "TEST-LOCAL-001_FX.json"
+    }
+  },
+  {
+    "invoiceId": "2c9cbd24-8d0a-48de-988d-f5127dae585e",
+    "invoiceRef": "TEST-UNITAIRE-01",
+    "amount": 15,
+    "clientName": "Testeur Unitaire",
+    "userId": "u-12345",
+    "paymentMethod": "SEPA",
+    "iban": "FR761234567890",
+    "status": "COMPLETED",
+    "receivedAt": "2026-01-22T14:07:19.989Z",
+    "files": {
+      "pdf": "FACT_TEST-UNITAIRE-01.pdf",
+      "facturx": "TEST-UNITAIRE-01_FX.json"
+    }
   }
 ]
