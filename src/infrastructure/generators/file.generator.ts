@@ -31,12 +31,28 @@ export class FileGenerator implements IFileGenerator {
                 path.join(this.baseDir, 'invoices', pdfName),
             )
             doc.pipe(stream)
+
+            // En-tête
             doc.fontSize(20)
                 .text('FACTURE GAMERS ERP', { align: 'center' })
                 .moveDown()
-            doc.fontSize(12).text(`Ref: ${data.invoiceRef}`)
-            doc.text(`Client: ${data.clientName}`)
-            doc.text(`Montant: ${data.amount} EUR`)
+
+            // Contenu
+            doc.fontSize(12).text(`Référence : ${data.invoiceRef}`)
+            doc.text(`Date      : ${new Date().toLocaleDateString()}`)
+            doc.moveDown()
+
+            doc.text(`Client : ${data.clientName} (ID: ${data.userId})`)
+            doc.moveDown()
+
+            // Montant
+            doc.fontSize(14).text(`Montant à payer : ${data.amount} EUR`, {
+                align: 'right',
+            })
+            doc.fontSize(10).text(`Moyen de paiement : ${data.paymentMethod}`, {
+                align: 'right',
+            })
+
             doc.end()
             stream.on('finish', resolve)
             stream.on('error', reject)
@@ -50,6 +66,8 @@ export class FileGenerator implements IFileGenerator {
             seller: { name: 'GAMERS ERP' },
             buyer: { id: data.userId, name: data.clientName },
             total: data.amount,
+            currency: 'EUR',
+            paymentMethod: data.paymentMethod,
         }
         fs.writeFileSync(
             path.join(this.baseDir, 'invoices', jsonName),
@@ -77,24 +95,82 @@ export class FileGenerator implements IFileGenerator {
                 .ele('MsgId')
                 .txt(`MSG-${Date.now()}`)
                 .up()
+                .ele('CreDtTm')
+                .txt(new Date().toISOString())
                 .up()
+                .ele('NbOfTx')
+                .txt(String(orders.length))
+                .up()
+                .ele('CtrlSum')
+                .txt(
+                    String(
+                        orders.reduce(
+                            (acc: number, o: any) => acc + o.amount,
+                            0,
+                        ),
+                    ),
+                )
+                .up()
+                .ele('InitgPty')
+                .ele('Nm')
+                .txt('GAMERS ERP')
+                .up()
+                .up()
+                .up()
+
+            // Ajout des transactions
+            for (const order of orders) {
+                doc.root()
+                    .first()
+                    .ele('PmtInf')
+                    .ele('PmtInfId')
+                    .txt(order.invoiceRef)
+                    .up()
+                    .ele('PmtMtd')
+                    .txt('DD')
+                    .up() // Direct Debit
+                    .ele('ReqdColltnDt')
+                    .txt(executionDate)
+                    .up()
+                    .ele('DrctDbtTxInf')
+                    .ele('PmtId')
+                    .ele('EndToEndId')
+                    .txt(order.id)
+                    .up()
+                    .up()
+                    .ele('InstdAmt', { Ccy: 'EUR' })
+                    .txt(String(order.amount))
+                    .up()
+                    .ele('Dbtr')
+                    .ele('Nm')
+                    .txt('Client-' + order.userId)
+                    .up()
+                    .up()
+                    .up()
+                    .up()
+            }
 
             const xml = doc.end({ prettyPrint: true })
             fs.writeFileSync(path.join(this.baseDir, 'sepa', filename), xml)
+            console.log(`[SEPA] File generated: ${filename}`)
             return filename
         } else {
             const filename = `CB_${executionDate}_${Date.now()}.json`
             const content = {
                 batchId: `CB-${Date.now()}`,
+                date: executionDate,
+                merchant: 'GAMERS ERP',
                 transactions: orders.map((o) => ({
                     ref: o.invoiceRef,
                     amount: o.amount,
+                    currency: 'EUR',
                 })),
             }
             fs.writeFileSync(
                 path.join(this.baseDir, 'cb', filename),
                 JSON.stringify(content, null, 2),
             )
+            console.log(`[CARD] File generated: ${filename}`)
             return filename
         }
     }
