@@ -24,6 +24,8 @@ WORKDIR /erp-bank
 
 ENV NODE_ENV=production
 
+# RUN mkdir -p public/invoices public/sepa public/cb data
+
 # Copie uniquement les fichiers nécessaires depuis le stage de build
 COPY --from=builder --chown=nonroot:nonroot /erp-bank/package*.json ./
 
@@ -34,6 +36,8 @@ COPY --from=builder --chown=nonroot:nonroot /erp-bank/node_modules ./node_module
 # Copie des fichiers statiques nécessaires
 COPY --from=builder --chown=nonroot:nonroot /erp-bank/public ./public
 COPY --from=builder --chown=nonroot:nonroot /erp-bank/data ./data
+
+RUN chown -R nonroot:nonroot/erp-bank
 
 # Utilisateur non-root pour la sécurité
 USER nonroot:nonroot
