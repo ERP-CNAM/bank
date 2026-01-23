@@ -19,30 +19,30 @@ RUN npm run build
 RUN npm prune --production
 
 # Production stage
-FROM gcr.io/distroless/nodejs22-debian12 AS runner
+FROM node:22-alpine AS runner
 WORKDIR /erp-bank
 
 ENV NODE_ENV=production
 
-# RUN mkdir -p public/invoices public/sepa public/cb data
+RUN mkdir -p public/invoices public/sepa public/cb data
 
 # Copie uniquement les fichiers nécessaires depuis le stage de build
-COPY --from=builder --chown=nonroot:nonroot /erp-bank/package*.json ./
+COPY --from=builder /erp-bank/package*.json ./
 
 # Copie du code compilé (le dossier dist)
-COPY --from=builder --chown=nonroot:nonroot /erp-bank/dist ./dist
-COPY --from=builder --chown=nonroot:nonroot /erp-bank/node_modules ./node_modules
+COPY --from=builder /erp-bank/dist ./dist
+COPY --from=builder /erp-bank/node_modules ./node_modules
 
 # Copie des fichiers statiques nécessaires
-COPY --from=builder --chown=nonroot:nonroot /erp-bank/public ./public
-COPY --from=builder --chown=nonroot:nonroot /erp-bank/data ./data
+COPY --from=builder /erp-bank/public ./public
+COPY --from=builder /erp-bank/data ./data
 
-RUN chown -R nonroot:nonroot/erp-bank
+RUN chown -R node:node /erp-bank
 
 # Utilisateur non-root pour la sécurité
-USER nonroot:nonroot
+USER node
 
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
 EXPOSE 3004
 
-CMD ["dist/index.js"]
+CMD ["node","dist/index.js"]
