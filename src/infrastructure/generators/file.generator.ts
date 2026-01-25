@@ -9,10 +9,19 @@ export class FileGenerator implements IFileGenerator {
 
     constructor() {
         this.baseDir = path.join(process.cwd(), 'public')
-        ;['invoices', 'sepa', 'cb'].forEach((d) => {
+        const folders = ['invoices', 'sepa', 'cb']
+
+        folders.forEach((d) => {
             const p = path.join(this.baseDir, d)
-            if (!fs.existsSync(p)) {
-                fs.mkdirSync(p, { recursive: true })
+            try {
+                if (!fs.existsSync(p)) {
+                    fs.mkdirSync(p, { recursive: true })
+                }
+            } catch (err) {
+                console.error(
+                    `Erreur lors de la création du dossier ${p}:`,
+                    err,
+                )
             }
         })
     }

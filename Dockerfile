@@ -24,6 +24,7 @@ WORKDIR /erp-bank
 
 ENV NODE_ENV=production
 
+RUN apk add --no-cache su-exec
 RUN mkdir -p public/invoices public/sepa public/cb data
 
 # Copie uniquement les fichiers nécessaires depuis le stage de build
@@ -33,16 +34,12 @@ COPY --from=builder /erp-bank/package*.json ./
 COPY --from=builder /erp-bank/dist ./dist
 COPY --from=builder /erp-bank/node_modules ./node_modules
 
-# Copie des fichiers statiques nécessaires
-COPY --from=builder /erp-bank/public ./public
-COPY --from=builder /erp-bank/data ./data
-
-RUN chown -R node:node /erp-bank
-
-# Utilisateur non-root pour la sécurité
-USER node
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
 EXPOSE 3004
+
+ENTRYPOINT [ "docker-entrypoint.sh" ]
 
 CMD ["node","dist/index.js"]
