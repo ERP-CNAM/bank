@@ -1,0 +1,12 @@
+{
+  "batchId": "CB-1769539200030",
+  "date": "2026-01-27",
+  "merchant": "GAMERS ERP",
+  "transactions": [
+    {
+      "ref": "TEST-BATCH-002",
+      "amount": 19.5,
+      "currency": "EUR"
+    }
+  ]
+}

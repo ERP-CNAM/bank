@@ -1,0 +1,15 @@
+{
+  "type": "FACTUR-X-MINIMUM",
+  "id": "TEST-BATCH-001",
+  "date": "2026-01-27T18:49:00.057Z",
+  "seller": {
+    "name": "GAMERS ERP"
+  },
+  "buyer": {
+    "id": "user-test",
+    "name": "Client Test"
+  },
+  "total": 49.99,
+  "currency": "EUR",
+  "paymentMethod": "SEPA"
+}

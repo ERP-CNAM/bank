@@ -27,5 +27,26 @@
       "pdf": "FACT_TEST-UNITAIRE-01.pdf",
       "facturx": "TEST-UNITAIRE-01_FX.json"
     }
+  },
+  {
+    "invoiceId": "00000000-0000-0000-0000-000000000001",
+    "invoiceRef": "TEST-BATCH-001",
+    "amount": 49.99,
+    "clientName": "Client Test",
+    "userId": "user-test",
+    "paymentMethod": "SEPA",
+    "iban": "FR761234567890",
+    "status": "COMPLETED",
+    "processedAt": "2026-01-27T18:49:00.058Z"
+  },
+  {
+    "invoiceId": "00000000-0000-0000-0000-000000000002",
+    "invoiceRef": "TEST-BATCH-002",
+    "amount": 19.5,
+    "clientName": "Client Test 2",
+    "userId": "user-test-2",
+    "paymentMethod": "CARD",
+    "status": "COMPLETED",
+    "processedAt": "2026-01-27T18:49:00.064Z"
   }
 ]

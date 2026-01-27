@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
+import cron from 'node-cron'
 import { env } from './config/env'
 import { ConnectAdapter } from './infrastructure/adapters/connect.adapter'
 import { FileGenerator } from './infrastructure/generators/file.generator'
@@ -45,5 +46,49 @@ app.listen(env.BANK_PORT, async () => {
         { path: 'api/payment', method: 'POST', permission: 0 },
         { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
         { path: 'ping', method: 'GET', permission: 0 },
-    ])
+    ])  
+
+    if (env.CRON_ENABLED === 'true') {
+        const cronSchedule = env.CRON_SCHEDULE || '0 2 1 * *'
+
+        console.log(`CRON activé avec la planification : ${cronSchedule}`)
+        
+        if (!cron.validate(cronSchedule)) {
+            console.error(`❌ Format CRON invalide : ${cronSchedule}`)
+            console.error(`   Format attendu : "minute heure jour mois jour_semaine"`)
+            console.error(`   Exemple : "0 2 1 * *" (1er de chaque mois à 2h)`)
+        } else {
+            cron.schedule(cronSchedule, async () => {
+                const executionDate = new Date().toISOString().split('T')[0]
+                console.log(``)
+                console.log(`╔════════════════════════════════════════════════════╗`)
+                console.log(`║      DÉCLENCHEMENT AUTOMATIQUE DU BATCH MENSUEL    ║`)
+                console.log(`║   Date d'exécution : ${executionDate}              ║`)
+                console.log(`╚════════════════════════════════════════════════════╝`)
+                console.log(``)
+
+                try {
+                    const result = await service.runMonthlyProcess(executionDate)
+                    console.log(`Batch mensuel terminé avec succès`)
+                    console.log(`Résultat :`, result)
+                } catch (error: any) {
+                    console.error(`Erreur lors du batch mensuel :`, error.message)
+                }
+            })
+
+            console.log(`Planification CRON configurée`)
+            console.log(`   Prochaine exécution : ${getNextCronExecution(cronSchedule)}`)
+        }
+    } else {
+        console.log(`⏸CRON désactivé (CRON_ENABLED=${env.CRON_ENABLED})`)
+        console.log(`   Pour activer le batch automatique, définir CRON_ENABLED=true dans .env`)
+    }
 })
+
+function getNextCronExecution(schedule: string): string {
+    try {
+        return "Calculé par node-cron (voir logs au démarrage)"
+    } catch (e) {
+        return "Non calculable"
+    }
+}

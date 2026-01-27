@@ -1,0 +1,1227 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+# File Summary
+
+## Purpose
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+## File Format
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  a. A header with the file path (## File: path/to/file)
+  b. The full contents of the file in a code block
+
+## Usage Guidelines
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+## Notes
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+
+# Directory Structure
+```
+.github/
+  workflows/
+    image-builder.yml
+data/
+  transactions.json
+public/
+  invoices/
+    FACT_TEST-LOCAL-001.pdf
+    FACT_TEST-UNITAIRE-01.pdf
+    TEST-LOCAL-001_FX.json
+    TEST-UNITAIRE-01_FX.json
+  sepa/
+    SEPA_2026-01-15_1768504128484.xml
+src/
+  application/
+    payment.service.ts
+  config/
+    env.ts
+  domain/
+    interfaces/
+      IBankProvider.ts
+      IFileGenerator.ts
+      ITransactionRepository.ts
+      TransactionDTO.ts
+      TransactionResult.ts
+  infrastructure/
+    adapters/
+      connect.adapter.ts
+    generators/
+      file.generator.ts
+    repositories/
+      json.repository.ts
+  presentation/
+    payment.controller.ts
+  index.ts
+.dockerignore
+.gitignore
+docker-entrypoint.sh
+Dockerfile
+package.json
+README.md
+tsconfig.json
+```
+
+# Files
+
+## File: public/invoices/TEST-UNITAIRE-01_FX.json
+````json
+{
+  "type": "FACTUR-X-MINIMUM",
+  "id": "TEST-UNITAIRE-01",
+  "date": "2026-01-22T14:07:19.988Z",
+  "seller": {
+    "name": "GAMERS ERP"
+  },
+  "buyer": {
+    "id": "u-12345",
+    "name": "Testeur Unitaire"
+  },
+  "total": 15,
+  "currency": "EUR",
+  "paymentMethod": "SEPA"
+}
+````
+
+## File: public/sepa/SEPA_2026-01-15_1768504128484.xml
+````xml
+<?xml version="1.0"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02">
+  <CstmrDrctDbtInitn>
+    <GrpHdr>
+      <MsgId>MSG-1768504128466</MsgId>
+      <CreDtTm>2026-01-15T19:08:48.468Z</CreDtTm>
+      <NbOfTx>1</NbOfTx>
+      <CtrlSum>49.99</CtrlSum>
+      <InitgPty>
+        <Nm>GAMERS ERP</Nm>
+      </InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>TEST-LOCAL-001</PmtInfId>
+      <PmtMtd>DD</PmtMtd>
+      <ReqdColltnDt>2026-01-15</ReqdColltnDt>
+      <DrctDbtTxInf>
+        <PmtId>
+          <EndToEndId/>
+        </PmtId>
+        <InstdAmt Ccy="EUR">49.99</InstdAmt>
+        <Dbtr>
+          <Nm>Client-user-123</Nm>
+        </Dbtr>
+      </DrctDbtTxInf>
+    </PmtInf>
+  </CstmrDrctDbtInitn>
+</Document>
+````
+
+## File: src/application/payment.service.ts
+````typescript
+// import { callService } from '../infrastructure/adapters/connect.adapter'
+// import { InvoiceService } from '../invoices/invoice.service'
+// import { SepaService } from '../modules/payments/sepa.service'
+// import { DataManager } from '../utils/data.manager'
+import { IBankProvider } from '../domain/interfaces/IBankProvider.js'
+import { IFileGenerator } from '../domain/interfaces/IFileGenerator.js'
+import { ITransactionRepository } from '../domain/interfaces/ITransactionRepository.js'
+
+export class PaymentService {
+    constructor(
+        private bankProvider: IBankProvider,
+        private fileGenerator: IFileGenerator,
+        private repo: ITransactionRepository,
+    ) {}
+
+    // Méthode principale déclenchée manuellement ou par cron
+    async runMonthlyProcess(executionDate: string) {
+        console.log(
+            `🚀 Démarrage du traitement bancaire pour le : ${executionDate}`,
+        )
+
+        // 1. Récupérer les ordres de prélèvements depuis le module BACK (via Connect)
+        // La route GET du back attend "executionDate" en query param
+        // Connect transforme le payload en query params pour les GET (selon le standard Connect/Back)
+        let orders
+        try {
+            orders = await this.bankProvider.fetchDirectDebits(executionDate)
+        } catch (e: any) {
+            return {
+                success: false,
+                message: `Impossible de récupérer les ordres du BACK: ${e.message}`,
+            }
+        }
+
+        if (!orders?.length)
+            return { success: true, message: 'Aucun ordre à traiter' }
+
+        console.log(`📦 ${orders.length} ordres reçus.`)
+
+        // 2. Séparer SEPA et Carte
+        const sepaOrders = orders.filter((o: any) => o.paymentMethod === 'SEPA')
+        const cardOrders = orders.filter((o: any) => o.paymentMethod === 'CARD')
+
+        const sepaFile = this.fileGenerator.generateBankingFile(
+            sepaOrders,
+            'SEPA',
+            executionDate,
+        )
+        const cardFile = this.fileGenerator.generateBankingFile(
+            cardOrders,
+            'CARD',
+            executionDate,
+        )
+        // 3. Traitement & Génération factures individuelles
+        const updates = []
+        for (const order of orders) {
+            // Génération docs (PDF/FacturX)
+            await this.fileGenerator.generateInvoice(order)
+
+            // Simulation résultat (10% échec)
+            const isRejected = Math.random() < 0.1
+            const status = isRejected ? 'REJECTED' : 'EXECUTED'
+
+            // Sauvegarde locale
+            await this.repo.save({
+                ...order,
+                status: isRejected ? 'REJECTED' : 'COMPLETED',
+                processedAt: new Date().toISOString(),
+            })
+
+            updates.push({
+                invoiceId: order.invoiceId,
+                status,
+                rejectionReason: isRejected ? 'Solde insuffisant' : null,
+            })
+        }
+        // 4. Notification Back
+        console.log(`📤 Envoi des mises à jour de paiement au BACK...`)
+        try {
+            await this.bankProvider.notifyPaymentUpdates(updates)
+            console.log('✅ Back notifié avec succès.')
+        } catch (e) {
+            console.error('❌ Echec de la notification au BACK:')
+        }
+
+        return {
+            success: true,
+            count: orders.length,
+            files: { sepaFile, cardFile },
+        }
+    }
+
+    async processPayment(data: any) {
+        console.log(`Traitement unitaire en cours : ${data.invoiceRef}`)
+        const files = await this.fileGenerator.generateInvoice(data)
+        const isSuccess = data.amount < 2000
+
+        // 1. Initialisation de la transaction
+        const transaction = {
+            ...data,
+            status: isSuccess ? 'COMPLETED' : 'REJECTED',
+            receivedAt: new Date().toISOString(),
+            files,
+        }
+
+        // Sauvegarde initiale
+        await this.repo.save(transaction)
+
+        if (data.invoiceId) {
+            await this.bankProvider
+                .notifyPaymentUpdates([
+                    {
+                        invoiceId: data.invoiceId,
+                        status: isSuccess ? 'EXECUTED' : 'REJECTED',
+                        rejectionReason: isSuccess ? null : 'Rejet simulé',
+                    },
+                ])
+                .catch(console.error)
+        }
+
+        return transaction
+    }
+
+    async getTransactionStatus(ref: string) {
+        return this.repo.get(ref)
+    }
+}
+````
+
+## File: src/domain/interfaces/IBankProvider.ts
+````typescript
+export interface IBankProvider {
+    fetchDirectDebits(executionDate: string): Promise<any[]>
+    notifyPaymentUpdates(updates: any[]): Promise<void>
+    registerService(routes: any[]): Promise<void>
+}
+````
+
+## File: src/domain/interfaces/IFileGenerator.ts
+````typescript
+export interface IFileGenerator {
+    generateInvoice(data: any): Promise<{ pdf: string; facturx: string }>
+    generateBankingFile(
+        orders: any[],
+        type: 'SEPA' | 'CARD',
+        executionDate: string,
+    ): string
+}
+````
+
+## File: src/domain/interfaces/ITransactionRepository.ts
+````typescript
+export interface ITransactionRepository {
+    save(transaction: any): Promise<void>
+    get(ref: string): Promise<any | null>
+}
+````
+
+## File: src/domain/interfaces/TransactionDTO.ts
+````typescript
+export interface TransactionDTO {
+    invoiceRef: string
+    invoiceId?: string // UUID venant du back
+    amount: number
+    clientName: string
+    userId: string
+    paymentMethod: 'SEPA' | 'CARD'
+    iban?: string
+    executionDate?: string
+}
+````
+
+## File: src/domain/interfaces/TransactionResult.ts
+````typescript
+export interface TransactionResult {
+    status: 'COMPLETED' | 'REJECTED' | 'PROCESSING'
+    processedAt: string
+    files?: {
+        pdf?: string
+        facturx?: string
+        sepa?: string
+        cb?: string
+    }
+    error?: string
+}
+````
+
+## File: src/infrastructure/repositories/json.repository.ts
+````typescript
+import fs from 'fs'
+import path from 'path'
+import { ITransactionRepository } from '../../domain/interfaces/ITransactionRepository'
+
+export class JsonTransactionRepository implements ITransactionRepository {
+    private dbPath: string
+
+    constructor() {
+        this.dbPath = path.join(process.cwd(), 'data', 'transactions.json')
+        const dir = path.dirname(this.dbPath)
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+        if (!fs.existsSync(this.dbPath)) fs.writeFileSync(this.dbPath, '[]')
+    }
+
+    private load(): any[] {
+        try {
+            return JSON.parse(fs.readFileSync(this.dbPath, 'utf-8'))
+        } catch {
+            return []
+        }
+    }
+
+    async save(transaction: any): Promise<void> {
+        const all = this.load()
+        const index = all.findIndex(
+            (t: any) => t.invoiceRef === transaction.invoiceRef,
+        )
+        if (index >= 0) all[index] = transaction
+        else all.push(transaction)
+        fs.writeFileSync(this.dbPath, JSON.stringify(all, null, 2))
+    }
+
+    async get(ref: string): Promise<any | null> {
+        return this.load().find((t: any) => t.invoiceRef === ref) || null
+    }
+}
+````
+
+## File: .dockerignore
+````
+node_modules
+````
+
+## File: docker-entrypoint.sh
+````bash
+#!/bin/sh
+set -e
+
+# On s'assure que les dossiers existent
+mkdir -p /erp-bank/public/invoices
+mkdir -p /erp-bank/public/sepa
+mkdir -p /erp-bank/public/cb
+mkdir -p /erp-bank/data
+
+# On force l'appartenance des dossiers à l'utilisateur node
+# Cela va corriger les permissions sur le volume monté
+chown -R node:node /erp-bank/public
+chown -R node:node /erp-bank/data
+
+# On lance la commande demandée (CMD du Dockerfile) en tant qu'utilisateur 'node'
+# 'su-exec' est l'équivalent léger de 'sudo' pour Alpine
+exec su-exec node "$@"
+````
+
+## File: .github/workflows/image-builder.yml
+````yaml
+name: Image Builder
+
+on:
+    push:
+        branches:
+            - main
+
+jobs:
+    build-push:
+        uses: ERP-CNAM/workflows-templates/.github/workflows/image-builder.yml@main
+        with:
+            context: .
+````
+
+## File: public/invoices/TEST-LOCAL-001_FX.json
+````json
+{
+  "type": "FACTUR-X-MINIMUM",
+  "id": "TEST-LOCAL-001",
+  "date": "2026-01-22T14:07:38.385Z",
+  "seller": {
+    "name": "GAMERS ERP"
+  },
+  "buyer": {
+    "id": "user-123",
+    "name": "Testeur Local"
+  },
+  "total": 49.99,
+  "currency": "EUR",
+  "paymentMethod": "SEPA"
+}
+````
+
+## File: src/infrastructure/adapters/connect.adapter.ts
+````typescript
+import axios from 'axios'
+import { env } from '../../config/env'
+import { IBankProvider } from '../../domain/interfaces/IBankProvider'
+
+export class ConnectAdapter implements IBankProvider {
+    // Fonction pour appeler un autre service via Connect
+    private async callService(
+        targetService: string,
+        path: string,
+        method: string,
+        payload: any = {},
+    ) {
+        try {
+            console.log(
+                `Calling ${targetService} via Connect: ${method} ${path}`,
+            )
+
+            const axiosResponse = await axios({
+                method: method,
+                url: `${env.CONNECT_URL}/connect`,
+                data: {
+                    apiKey: env.CONNECT_API_KEY,
+                    clientName: env.BANK_SERVICE_NAME,
+                    clientVersion: env.BANK_SERVICE_VERSION,
+                    serviceName: targetService,
+                    path: path,
+                    debug: true,
+                    payload: payload,
+                },
+            })
+
+            const response = axiosResponse.data
+
+            console.log(`📞 Response : `, response)
+
+            if (!response.success) {
+                throw new Error(`❌ Connect Error: ${response.message}`)
+            }
+            return response.payload
+        } catch (error: any) {
+            const msg = error.response?.data?.message || error.message
+            console.error(
+                `❌ Erreur lors de l'appel à ${targetService} : ${msg}`,
+            )
+            throw new Error(msg)
+        }
+    }
+    async fetchDirectDebits(executionDate: string): Promise<any[]> {
+        // GET via POST pour Connect
+        return this.callService(
+            'back',
+            `/exports/banking/direct-debits?executionDate=${executionDate}`,
+            'GET',
+        )
+    }
+
+    async notifyPaymentUpdates(updates: any[]): Promise<void> {
+        await this.callService('back', '/bank/payment-updates', 'POST', updates)
+    }
+
+    async registerService(routes: any[]): Promise<void> {
+        let registered = false
+        while (!registered) {
+            try {
+                console.log(
+                    `🔄 Tentative d'enregistrement de ${env.BANK_SERVICE_NAME} auprès de Connect (${env.CONNECT_URL})...`,
+                )
+                await axios.post(`${env.CONNECT_URL}/register`, {
+                    name: env.BANK_SERVICE_NAME,
+                    version: env.BANK_SERVICE_VERSION,
+                    description: 'Module bancaire',
+                    routes,
+                    listeningPort: env.BANK_PORT,
+                    overrideIp: env.SERVICE_HOST,
+                    apiKey: env.CONNECT_API_KEY,
+                })
+                console.log('✅ Service enregistré auprès de Connect')
+                registered = true
+            } catch (e: any) {
+                console.log(
+                    "⏳ En attente de Connect... Échec de l'enregistrement :",
+                    e.message,
+                )
+                await new Promise((r) => setTimeout(r, 3000))
+            }
+        }
+    }
+}
+````
+
+## File: src/presentation/payment.controller.ts
+````typescript
+import { Request, Response } from 'express'
+import { PaymentService } from '../application/payment.service'
+
+export class PaymentController {
+    constructor(private service: PaymentService) {}
+
+    // Middleware Connect Wrapper
+    static unwrapConnect(req: Request, res: Response, next: any) {
+        if (req.body?.apiKey && req.body?.payload) {
+            req.body = req.body.payload
+        }
+        next()
+    }
+
+    // POST /trigger-sync
+    triggerSync = async (req: Request, res: Response) => {
+        try {
+            const date =
+                req.body.executionDate || new Date().toISOString().split('T')[0]
+            const result = await this.service.runMonthlyProcess(date)
+            res.json({
+                success: true,
+                message: 'Synchronisation terminée',
+                payload: result,
+            })
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message })
+        }
+    }
+
+    // POST /api/payment
+    processUnit = async (req: Request, res: Response) => {
+        try {
+            if (!req.body.invoiceRef || !req.body.amount)
+                throw new Error('Données manquantes')
+            const result = await this.service.processPayment(req.body)
+            res.json({
+                success: true,
+                message: 'Paiement traité avec succès',
+                payload: result,
+            })
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message })
+        }
+    }
+
+    // GET /api/payment/:ref
+    getStatus = async (req: Request, res: Response) => {
+        const result = await this.service.getTransactionStatus(
+            req.params.ref as string,
+        )
+        if (result)
+            res.json({
+                success: true,
+                message: 'Statut récupéré avec succès',
+                payload: result,
+            })
+        else res.status(404).json({ success: false, message: 'Non trouvé' })
+    }
+}
+````
+
+## File: tsconfig.json
+````json
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "CommonJS",
+        "rootDir": "./src",
+        "outDir": "./dist",
+
+        "strict": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+
+        "resolveJsonModule": true,
+        "types": ["node"]
+    },
+    "include": ["src/**/*.ts"],
+    "exclude": ["node_modules", "dist"]
+}
+````
+
+## File: src/infrastructure/generators/file.generator.ts
+````typescript
+import fs from 'fs'
+import path from 'path'
+import PDFDocument from 'pdfkit'
+import { create } from 'xmlbuilder2'
+import { IFileGenerator } from '../../domain/interfaces/IFileGenerator.js'
+
+export class FileGenerator implements IFileGenerator {
+    private baseDir: string
+
+    constructor() {
+        this.baseDir = path.join(process.cwd(), 'public')
+        const folders = ['invoices', 'sepa', 'cb']
+
+        folders.forEach((d) => {
+            const p = path.join(this.baseDir, d)
+            try {
+                if (!fs.existsSync(p)) {
+                    fs.mkdirSync(p, { recursive: true })
+                }
+            } catch (err) {
+                console.error(
+                    `Erreur lors de la création du dossier ${p}:`,
+                    err,
+                )
+            }
+        })
+    }
+
+    // Génère PDF et FacturX JSON
+    async generateInvoice(
+        data: any,
+    ): Promise<{ pdf: string; facturx: string }> {
+        const pdfName = `FACT_${data.invoiceRef}.pdf`
+        const jsonName = `${data.invoiceRef}_FX.json`
+
+        // PDF Generation
+        await new Promise<void>((resolve, reject) => {
+            const doc = new PDFDocument()
+            const stream = fs.createWriteStream(
+                path.join(this.baseDir, 'invoices', pdfName),
+            )
+            doc.pipe(stream)
+
+            // En-tête
+            doc.fontSize(20)
+                .text('FACTURE GAMERS ERP', { align: 'center' })
+                .moveDown()
+
+            // Contenu
+            doc.fontSize(12).text(`Référence : ${data.invoiceRef}`)
+            doc.text(`Date      : ${new Date().toLocaleDateString()}`)
+            doc.moveDown()
+
+            doc.text(`Client : ${data.clientName} (ID: ${data.userId})`)
+            doc.moveDown()
+
+            // Montant
+            doc.fontSize(14).text(`Montant à payer : ${data.amount} EUR`, {
+                align: 'right',
+            })
+            doc.fontSize(10).text(`Moyen de paiement : ${data.paymentMethod}`, {
+                align: 'right',
+            })
+
+            doc.end()
+            stream.on('finish', resolve)
+            stream.on('error', reject)
+        })
+
+        // FacturX JSON
+        const fxData = {
+            type: 'FACTUR-X-MINIMUM',
+            id: data.invoiceRef,
+            date: new Date().toISOString(),
+            seller: { name: 'GAMERS ERP' },
+            buyer: { id: data.userId, name: data.clientName },
+            total: data.amount,
+            currency: 'EUR',
+            paymentMethod: data.paymentMethod,
+        }
+        fs.writeFileSync(
+            path.join(this.baseDir, 'invoices', jsonName),
+            JSON.stringify(fxData, null, 2),
+        )
+
+        return { pdf: pdfName, facturx: jsonName }
+    }
+
+    generateBankingFile(
+        orders: any[],
+        type: 'SEPA' | 'CARD',
+        executionDate: string,
+    ): string {
+        if (orders.length === 0) return ''
+
+        if (type === 'SEPA') {
+            const filename = `SEPA_${executionDate}_${Date.now()}.xml`
+            const doc = create({ version: '1.0' })
+                .ele('Document', {
+                    xmlns: 'urn:iso:std:iso:20022:tech:xsd:pain.008.001.02',
+                })
+                .ele('CstmrDrctDbtInitn')
+                .ele('GrpHdr')
+                .ele('MsgId')
+                .txt(`MSG-${Date.now()}`)
+                .up()
+                .ele('CreDtTm')
+                .txt(new Date().toISOString())
+                .up()
+                .ele('NbOfTx')
+                .txt(String(orders.length))
+                .up()
+                .ele('CtrlSum')
+                .txt(
+                    String(
+                        orders.reduce(
+                            (acc: number, o: any) => acc + o.amount,
+                            0,
+                        ),
+                    ),
+                )
+                .up()
+                .ele('InitgPty')
+                .ele('Nm')
+                .txt('GAMERS ERP')
+                .up()
+                .up()
+                .up()
+
+            // Ajout des transactions
+            for (const order of orders) {
+                doc.root()
+                    .first()
+                    .ele('PmtInf')
+                    .ele('PmtInfId')
+                    .txt(order.invoiceRef)
+                    .up()
+                    .ele('PmtMtd')
+                    .txt('DD')
+                    .up() // Direct Debit
+                    .ele('ReqdColltnDt')
+                    .txt(executionDate)
+                    .up()
+                    .ele('DrctDbtTxInf')
+                    .ele('PmtId')
+                    .ele('EndToEndId')
+                    .txt(order.id)
+                    .up()
+                    .up()
+                    .ele('InstdAmt', { Ccy: 'EUR' })
+                    .txt(String(order.amount))
+                    .up()
+                    .ele('Dbtr')
+                    .ele('Nm')
+                    .txt('Client-' + order.userId)
+                    .up()
+                    .up()
+                    .up()
+                    .up()
+            }
+
+            const xml = doc.end({ prettyPrint: true })
+            fs.writeFileSync(path.join(this.baseDir, 'sepa', filename), xml)
+            console.log(`[SEPA] File generated: ${filename}`)
+            return filename
+        } else {
+            const filename = `CB_${executionDate}_${Date.now()}.json`
+            const content = {
+                batchId: `CB-${Date.now()}`,
+                date: executionDate,
+                merchant: 'GAMERS ERP',
+                transactions: orders.map((o) => ({
+                    ref: o.invoiceRef,
+                    amount: o.amount,
+                    currency: 'EUR',
+                })),
+            }
+            fs.writeFileSync(
+                path.join(this.baseDir, 'cb', filename),
+                JSON.stringify(content, null, 2),
+            )
+            console.log(`[CARD] File generated: ${filename}`)
+            return filename
+        }
+    }
+}
+````
+
+## File: README.md
+````markdown
+# Projet ERP Group Bank 🪙💰
+
+## Présentation du groupe BANK
+
+Bienvenue dans la section du groupe `BANK` du projet création d'un ERP.
+
+Le groupe `BANK` doit s'occuper des informations suivantes :
+
+- Génération de Fichier SEPA de demande de prélèvement bancaire.
+- Génération de demande de prélèvement bancaire par carte bleue.
+- Intégration des relevés bancaires attestant du paiement des clients ou du rejet du paiement.
+- Envoi l’information du bon prélèvement ou du rejet de paiement aux groupes qui ont besoin de cette info.
+- Ce groupe aura également à faire la génération de la facture PDF et FacturX à transmettre dans le cadre de la facturation électronique (format fictif du mandat SEPA et FacturX Json)
+
+## Mise en place du projet
+
+### Lancer le projet
+
+Vous pouvez cloner le projet et vous rendre dans le répertoire local.
+
+```bash
+git clone https://github.com/ERP-CNAM/bank.git
+cd bank
+```
+
+Avant tout il faudra établir le fichier d'environnement `.env`.
+Vous pouvez copier le fichier d'exemple :
+
+```bash
+cp .env.example .env
+```
+
+Afin de lancer le serveur il faudra d'abord créer les dépendances :
+
+```bash
+npm install
+```
+
+Pour lancer le serveur local saisir la commande suivante :
+
+```bash
+npm run dev
+```
+
+Le serveur se lance sur le `port 3004` et va de suite se connceter avec les autres services via `CONNECT`
+
+Ex :
+
+> 🔄 Tentative d'enregistrement de BANK auprès de Connect (http://localhost:8000)...
+
+> ✅ Service enregistré correctement
+
+### Création d'une facture en local
+
+Afin de créer une facture on peut tester notre serveur local en utilisant la commande PowerShell suivante :
+
+```bash
+Invoke-RestMethod -Uri "http://localhost:3004/api/payment" -Method Post -ContentType "application/json" -Body '{"invoiceRef": "TEST-LOCAL-001", "amount": 49.99, "clientName": "Testeur BG", "userId": "user-123", "paymentMethod": "SEPA", "iban": "FR761234567890"}'
+```
+
+Pour l'utilisation de MAC/Linux :
+
+```bash
+curl -X POST "http://localhost:3004/api/payment" -H "Content-Type: application/json" -d '{"invoiceRef": "TEST-LOCAL-001", "amount": 49.99, "clientName": "Testeur BG", "userId": "user-123", "paymentMethod": "SEPA", "iban": "FR761234567890"}'
+```
+
+Avec cette commande on aura un repertoire `public/` qui sera genéré et qui va contenir les factures en PDF et Json ainsi que le repertoire `data/` qui contient le fichier `transactions.json` qui retranscrit toutes les transactions effectuées.
+
+## Docker
+
+Faisant partie d'un groupe de services, le service BANK peut être lancé via Docker Compose depuis le répertoire principal du projet ERP.
+
+Cloner le projet principal ERP et s'y rendre :
+
+```bash
+git clone https://github.com/ERP-CNAM/erp.git
+cd erp
+```
+
+Ici nous pouvons lancer tous les services via Docker Compose :
+
+```bash
+docker-compose up --build
+```
+
+### Tester le service BANK via Docker
+
+Une fois les services lancés, nous pouvons tester le service BANK en passant par le service CONNECT.
+
+Si vous utilisez Postman ou Bruno, vous pouvez faire une requête `POST` vers l'URL suivante :
+
+```bash
+http://erp-connect:8000/connect
+```
+
+Cette requête doit être faite toujours avec un body JSON qui prend les paramètres suivants :
+
+```json
+{
+    "apiKey": "changethis",
+    "clientName": "TEST_UNITAIRE_1",
+    "clientVersion": "1.0.0",
+    "serviceName": "[nom_du_service]",
+    "path": "[route_api]",
+    "debug": true,
+    "payload": {}
+}
+```
+
+#### Pour créer une facture via Docker
+
+Pour créer une facture via Docker, il faudra lancer la route `POST` `http://erp-connect:8000/connect` avec le body suivant :
+
+```json
+{
+    "apiKey": "changethis",
+    "clientName": "TEST_UNITAIRE_1",
+    "clientVersion": "1.0.0",
+    "serviceName": "BANK",
+    "path": "/api/payment",
+    "debug": true,
+    "payload": {
+        "invoiceId": "2c9cbd24-8d0a-48de-988d-f5127dae585e",
+        "invoiceRef": "TEST-UNITAIRE-01",
+        "amount": 15.0,
+        "clientName": "Testeur Unitaire",
+        "userId": "u-12345",
+        "paymentMethod": "SEPA",
+        "iban": "FR761234567890"
+    }
+}
+```
+
+Cette commande generera une facture dans le repertoire `public/` du service BANK et enregistrera la transaction dans le fichier `data/transactions.json`.
+
+#### Pour lancer le batch mensuel via Docker
+
+Une fois qu'on crée des transactions, on peut lancer le batch mensuel qui va synchroniser les paiements en attente.
+
+Pour lancer le batch mensuel via Docker, il faudra lancer la route `POST` `http://erp-connect:8000/connect` avec le body suivant :
+
+```json
+{
+    "apiKey": "changethis",
+    "clientName": "TEST_UNITAIRE_1",
+    "clientVersion": "1.0.0",
+    "serviceName": "BANK",
+    "path": "/trigger-sync",
+    "debug": true,
+    "payload": {
+        "executionDate": "2024-06-15"
+    }
+}
+```
+````
+
+## File: data/transactions.json
+````json
+[
+  {
+    "invoiceRef": "TEST-LOCAL-001",
+    "amount": 49.99,
+    "clientName": "Testeur Local",
+    "userId": "user-123",
+    "paymentMethod": "SEPA",
+    "iban": "FR761234567890",
+    "status": "COMPLETED",
+    "receivedAt": "2026-01-22T14:07:38.387Z",
+    "files": {
+      "pdf": "FACT_TEST-LOCAL-001.pdf",
+      "facturx": "TEST-LOCAL-001_FX.json"
+    }
+  },
+  {
+    "invoiceId": "2c9cbd24-8d0a-48de-988d-f5127dae585e",
+    "invoiceRef": "TEST-UNITAIRE-01",
+    "amount": 15,
+    "clientName": "Testeur Unitaire",
+    "userId": "u-12345",
+    "paymentMethod": "SEPA",
+    "iban": "FR761234567890",
+    "status": "COMPLETED",
+    "receivedAt": "2026-01-22T14:07:19.989Z",
+    "files": {
+      "pdf": "FACT_TEST-UNITAIRE-01.pdf",
+      "facturx": "TEST-UNITAIRE-01_FX.json"
+    }
+  }
+]
+````
+
+## File: .gitignore
+````
+# Logs
+*.log
+# Temporary files
+*.tmp
+*~
+
+*.bak
+# Environment files (containing secrets, API keys, credentials)
+.env
+*.env
+.env.*
+
+# Local configuration that shouldn't be shared
+*.local
+
+### Typescript ###
+# typescript specific files
+
+*.tsbuildinfo
+node_modules/
+dist/
+````
+
+## File: src/config/env.ts
+````typescript
+import dotenv from 'dotenv'
+dotenv.config()
+
+export const env = {
+    BANK_PORT: process.env.BANK_PORT,
+    CONNECT_URL: process.env.CONNECT_URL,
+    BANK_NODE_ENV: process.env.BANK_NODE_ENV,
+    CONNECT_API_KEY: process.env.CONNECT_API_KEY,
+    BANK_SERVICE_NAME: process.env.BANK_SERVICE_NAME,
+    BANK_SERVICE_VERSION: process.env.BANK_SERVICE_VERSION,
+    SERVICE_HOST: process.env.SERVICE_HOST,
+    CRON_ENABLED: process.env.CRON_ENABLED || 'false',     
+    CRON_SCHEDULE: process.env.CRON_SCHEDULE || '0 2 1 * *'
+}
+````
+
+## File: src/index.ts
+````typescript
+import express, { Request, Response, NextFunction } from 'express'
+import cors from 'cors'
+import cron from 'node-cron'
+import { env } from './config/env'
+import { ConnectAdapter } from './infrastructure/adapters/connect.adapter'
+import { FileGenerator } from './infrastructure/generators/file.generator'
+import { JsonTransactionRepository } from './infrastructure/repositories/json.repository'
+import { PaymentService } from './application/payment.service'
+import { PaymentController } from './presentation/payment.controller'
+
+const app = express()
+app.use(cors())
+app.use(express.json())
+app.use(PaymentController.unwrapConnect)
+
+// Injection des dépendances
+const connectAdapter = new ConnectAdapter()
+const fileGenerator = new FileGenerator()
+const transactionRepo = new JsonTransactionRepository()
+const service = new PaymentService(
+    connectAdapter,
+    fileGenerator,
+    transactionRepo,
+)
+const controller = new PaymentController(service)
+
+// --- Routes ---
+app.get('/ping', (req, res) =>
+    res.json({ success: true, message: 'Bank Online' }),
+)
+app.post('/trigger-sync', controller.triggerSync)
+app.post('/api/payment', controller.processUnit)
+app.get('/api/payment/:ref', controller.getStatus)
+
+// --- Lancement ---
+app.listen(env.BANK_PORT, async () => {
+    console.log(`=========================================`)
+    console.log(`🏦 BANK Service démarré sur le port ${env.BANK_PORT}`)
+    console.log(`🌍 Environnement : ${process.env.NODE_ENV || 'dev'}`)
+    console.log(`🐋 Docker IP : ${env.CONNECT_URL || 'not set'}`)
+    console.log(`=========================================`)
+
+    // Enregistrement asynchrone auprès de Connect
+    await connectAdapter.registerService([
+        { path: 'trigger-sync', method: 'POST', permission: 0 },
+        { path: 'api/payment', method: 'POST', permission: 0 },
+        { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
+        { path: 'ping', method: 'GET', permission: 0 },
+    ])  
+
+    // --- Configuration du CRON pour le batch mensuel ---
+    if (env.CRON_ENABLED === 'true') {
+        const cronSchedule = env.CRON_SCHEDULE || '0 2 1 * *' // Par défaut : 1er de chaque mois à 2h
+
+        console.log(`⏰ CRON activé avec la planification : ${cronSchedule}`)
+        
+        // Validation du format cron
+        if (!cron.validate(cronSchedule)) {
+            console.error(`❌ Format CRON invalide : ${cronSchedule}`)
+            console.error(`   Format attendu : "minute heure jour mois jour_semaine"`)
+            console.error(`   Exemple : "0 2 1 * *" (1er de chaque mois à 2h)`)
+        } else {
+            cron.schedule(cronSchedule, async () => {
+                const executionDate = new Date().toISOString().split('T')[0]
+                console.log(``)
+                console.log(`╔════════════════════════════════════════════════════╗`)
+                console.log(`║  🕐 DÉCLENCHEMENT AUTOMATIQUE DU BATCH MENSUEL    ║`)
+                console.log(`║  📅 Date d'exécution : ${executionDate}              ║`)
+                console.log(`╚════════════════════════════════════════════════════╝`)
+                console.log(``)
+
+                try {
+                    const result = await service.runMonthlyProcess(executionDate)
+                    console.log(`✅ Batch mensuel terminé avec succès`)
+                    console.log(`📊 Résultat :`, result)
+                } catch (error: any) {
+                    console.error(`❌ Erreur lors du batch mensuel :`, error.message)
+                }
+            })
+
+            console.log(`✅ Planification CRON configurée`)
+            console.log(`   Prochaine exécution : ${getNextCronExecution(cronSchedule)}`)
+        }
+    } else {
+        console.log(`⏸️  CRON désactivé (CRON_ENABLED=${env.CRON_ENABLED})`)
+        console.log(`   Pour activer le batch automatique, définir CRON_ENABLED=true dans .env`)
+    }
+})
+
+// Fonction helper pour afficher la prochaine exécution du cron
+function getNextCronExecution(schedule: string): string {
+    try {
+        // Cette fonction est simplifiée, node-cron ne fournit pas nativement cette info
+        // On pourrait utiliser une librairie comme 'cron-parser' pour plus de précision
+        return "Calculé par node-cron (voir logs au démarrage)"
+    } catch (e) {
+        return "Non calculable"
+    }
+}
+````
+
+## File: package.json
+````json
+{
+    "name": "erp-bank",
+    "version": "1.0.0",
+    "description": "Système de gestion des paiements pour l'application ERP-CNAM",
+    "main": "src/index.ts",
+    "scripts": {
+        "dev": "nodemon src/index.ts",
+        "build": "tsc",
+        "start": "node dist/src/index.ts",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ERP-CNAM/bank.git"
+    },
+    "keywords": [],
+    "author": "BANK",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/ERP-CNAM/bank/issues"
+    },
+    "homepage": "https://github.com/ERP-CNAM/bank#readme",
+    "devDependencies": {
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.6",
+        "@types/morgan": "^1.9.10",
+        "@types/node": "^25.0.7",
+        "@types/node-cron": "^3.0.11",
+        "@types/pdfkit": "^0.17.4",
+        "nodemon": "^3.1.11",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "axios": "^1.13.2",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.3",
+        "express": "^5.2.1",
+        "morgan": "^1.10.1",
+        "node-cron": "^4.2.1",
+        "pdfkit": "^0.17.2",
+        "xmlbuilder2": "^4.0.3",
+        "zod": "^4.3.5"
+    }
+}
+````
+
+## File: Dockerfile
+````dockerfile
+# Build stage
+FROM node:22-alpine AS builder
+
+WORKDIR /erp-bank
+
+# Copie des fichiers de dépendances
+COPY package*.json ./
+
+# Installation des dépendances (y compris les devDependencies pour le build TypeScript)
+RUN npm install
+
+# Copie du reste du code source
+COPY . .
+
+# Build de l'application TypeScript
+RUN npm run build
+
+# Suppression des dépendances de développement pour alléger l'image finale
+RUN npm prune --production
+
+# Production stage
+FROM node:22-alpine AS runner
+WORKDIR /erp-bank
+
+ENV NODE_ENV=production
+
+RUN apk add --no-cache su-exec
+RUN mkdir -p public/invoices public/sepa public/cb data
+
+# Copie uniquement les fichiers nécessaires depuis le stage de build
+COPY --from=builder /erp-bank/package*.json ./
+
+# Copie du code compilé (le dossier dist)
+COPY --from=builder /erp-bank/dist ./dist
+COPY --from=builder /erp-bank/node_modules ./node_modules
+
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
+EXPOSE 3004
+
+ENTRYPOINT [ "docker-entrypoint.sh" ]
+
+CMD ["node","dist/index.js"]
+````

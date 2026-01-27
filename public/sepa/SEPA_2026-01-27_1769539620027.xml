@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02">
+  <CstmrDrctDbtInitn>
+    <GrpHdr>
+      <MsgId>MSG-1769539620032</MsgId>
+      <CreDtTm>2026-01-27T18:47:00.032Z</CreDtTm>
+      <NbOfTx>1</NbOfTx>
+      <CtrlSum>49.99</CtrlSum>
+      <InitgPty>
+        <Nm>GAMERS ERP</Nm>
+      </InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>TEST-BATCH-001</PmtInfId>
+      <PmtMtd>DD</PmtMtd>
+      <ReqdColltnDt>2026-01-27</ReqdColltnDt>
+      <DrctDbtTxInf>
+        <PmtId>
+          <EndToEndId/>
+        </PmtId>
+        <InstdAmt Ccy="EUR">49.99</InstdAmt>
+        <Dbtr>
+          <Nm>Client-user-test</Nm>
+        </Dbtr>
+      </DrctDbtTxInf>
+    </PmtInf>
+  </CstmrDrctDbtInitn>
+</Document>

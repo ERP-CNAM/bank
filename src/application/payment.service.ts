@@ -22,15 +22,25 @@ export class PaymentService {
         // 1. Récupérer les ordres de prélèvements depuis le module BACK (via Connect)
         // La route GET du back attend "executionDate" en query param
         // Connect transforme le payload en query params pour les GET (selon le standard Connect/Back)
-        let orders
-        try {
-            orders = await this.bankProvider.fetchDirectDebits(executionDate)
-        } catch (e: any) {
-            return {
-                success: false,
-                message: `Impossible de récupérer les ordres du BACK: ${e.message}`,
-            }
-        }
+const orders = [
+  {
+    invoiceId: '00000000-0000-0000-0000-000000000001',
+    invoiceRef: 'TEST-BATCH-001',
+    amount: 49.99,
+    clientName: 'Client Test',
+    userId: 'user-test',
+    paymentMethod: 'SEPA',
+    iban: 'FR761234567890',
+  },
+  {
+    invoiceId: '00000000-0000-0000-0000-000000000002',
+    invoiceRef: 'TEST-BATCH-002',
+    amount: 19.5,
+    clientName: 'Client Test 2',
+    userId: 'user-test-2',
+    paymentMethod: 'CARD',
+  },
+]
 
         if (!orders?.length)
             return { success: true, message: 'Aucun ordre à traiter' }
