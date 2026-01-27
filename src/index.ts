@@ -6,7 +6,7 @@ import { FileGenerator } from './infrastructure/generators/file.generator'
 import { JsonTransactionRepository } from './infrastructure/repositories/json.repository'
 import { PaymentService } from './application/payment.service'
 import { PaymentController } from './presentation/payment.controller'
-
+import { FileController } from './presentation/file.controller'
 const app = express()
 app.use(cors())
 app.use(express.json())
@@ -22,6 +22,7 @@ const service = new PaymentService(
     transactionRepo,
 )
 const controller = new PaymentController(service)
+const fileController = new FileController()
 
 // --- Routes ---
 app.get('/ping', (req, res) =>
@@ -30,6 +31,11 @@ app.get('/ping', (req, res) =>
 app.post('/trigger-sync', controller.triggerSync)
 app.post('/api/payment', controller.processUnit)
 app.get('/api/payment/:ref', controller.getStatus)
+
+app.get('/api/files/invoice/:filename', fileController.downloadInvoice)
+app.get('/api/files/sepa/:filename', fileController.downloadSepa)
+app.get('/api/files/cb/:filename', fileController.downloadCb)
+app.get('/api/files', fileController.listFiles)
 
 // --- Lancement ---
 app.listen(env.BANK_PORT, async () => {

@@ -21,7 +21,7 @@ export class PaymentController {
             res.json({
                 success: true,
                 message: 'Synchronisation terminée',
-                payload: result,
+                data: result,
             })
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message })
@@ -36,8 +36,7 @@ export class PaymentController {
             const result = await this.service.processPayment(req.body)
             res.json({
                 success: true,
-                message: 'Paiement traité avec succès',
-                payload: result,
+                data: result
             })
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message })
@@ -45,16 +44,20 @@ export class PaymentController {
     }
 
     // GET /api/payment/:ref
-    getStatus = async (req: Request, res: Response) => {
-        const result = await this.service.getTransactionStatus(
-            req.params.ref as string,
-        )
-        if (result)
-            res.json({
-                success: true,
-                message: 'Statut récupéré avec succès',
-                payload: result,
-            })
-        else res.status(404).json({ success: false, message: 'Non trouvé' })
+getStatus = async (req: Request, res: Response) => {
+        try {
+            const result = await this.service.getTransactionStatus(req.params.ref as string);
+            if (result) {
+                res.json({
+                    success: true,
+                    message: 'Statut récupéré avec succès',
+                    data: result, // Changé 'payload' en 'data'
+                });
+            } else {
+                res.status(404).json({ success: false, message: 'Non trouvé' });
+            }
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
     }
 }
