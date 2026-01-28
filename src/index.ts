@@ -10,6 +10,13 @@ import { FileController } from './presentation/file.controller'
 const app = express()
 app.use(cors())
 app.use(express.json())
+// Middleware de debug pour voir les requêtes
+app.use((req, res, next) => {
+    console.log(`📨 ${req.method} ${req.path}`)
+    console.log('Headers:', req.headers)
+    console.log('Body:', req.body)
+    next()
+})
 app.use(PaymentController.unwrapConnect)
 
 // Injection des dépendances
@@ -51,5 +58,9 @@ app.listen(env.BANK_PORT, async () => {
         { path: 'api/payment', method: 'POST', permission: 0 },
         { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
         { path: 'ping', method: 'GET', permission: 0 },
+        { path: 'api/files', method: 'GET', permission: 0 },
+        { path: 'api/files/invoice/{filename}', method: 'GET', permission: 0 },
+        { path: 'api/files/sepa/{filename}', method: 'GET', permission: 0 },
+        { path: 'api/files/cb/{filename}', method: 'GET', permission: 0 },
     ])
 })
