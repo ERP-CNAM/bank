@@ -26,14 +26,12 @@ export class PaymentService {
         try {
             orders = await this.bankProvider.fetchDirectDebits(executionDate)
         } catch (e: any) {
-            return {
-                success: false,
-                message: `Impossible de récupérer les ordres du BACK: ${e.message}`,
-            }
+            throw new Error(`Impossible de récupérer les ordres du BACK: ${e.message}`);                
         }
 
-        if (!orders?.length)
-            return { success: true, message: 'Aucun ordre à traiter' }
+        if (!orders?.length) {
+            return { count: 0, message: 'Aucun ordre à traiter', processedOrders: 0 };
+        }
 
         console.log(`📦 ${orders.length} ordres reçus.`)
 
@@ -79,14 +77,13 @@ export class PaymentService {
         try {
             await this.bankProvider.notifyPaymentUpdates(updates)
             console.log('✅ Back notifié avec succès.')
-        } catch (e) {
-            console.error('❌ Echec de la notification au BACK:')
-        }
+        } catch (e:any) {
+            console.error('❌ Echec de la notification au BACK:', e.message);        }
 
         return {
-            success: true,
             count: orders.length,
             files: { sepaFile, cardFile },
+            processedOrders: orders.length
         }
     }
 
