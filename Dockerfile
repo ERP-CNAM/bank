@@ -24,7 +24,7 @@ WORKDIR /erp-bank
 
 ENV NODE_ENV=production
 
-RUN apk add --no-cache su-exec
+RUN apk add --no-cache su-exec dos2unix
 RUN mkdir -p public/invoices public/sepa public/cb data
 
 # Copie uniquement les fichiers nécessaires depuis le stage de build
@@ -35,7 +35,8 @@ COPY --from=builder /erp-bank/dist ./dist
 COPY --from=builder /erp-bank/node_modules ./node_modules
 
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN dos2unix /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Le port sur lequel l'application écoute (défini dans env.ts mais utile pour doc)
 EXPOSE 3004
