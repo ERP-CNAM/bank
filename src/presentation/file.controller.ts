@@ -3,6 +3,25 @@ import path from 'path'
 import fs from 'fs'
 
 export class FileController {
+    private formatResponse(res: Response, data: any, message: string = 'Succès') {
+        if (res.locals.isFromConnect) {
+            // Format strict attendu par le service CONNECT
+            return res.json({
+                success: true,
+                status: 'success',
+                message: message,
+                payload: data // CONNECT cherche ce champ 'payload'
+            })
+        } else {
+            // Format API Direct
+            return res.json({
+                success: true,
+                message: message,
+                data: data
+            })
+        }
+    }
+
     downloadInvoice = (req: Request, res: Response) => {
         const filename = String(req.params.filename)
         const filepath = path.join(process.cwd(), 'public', 'invoices', filename)
@@ -51,13 +70,12 @@ export class FileController {
         const sepa = fs.existsSync(path.join(baseDir, 'sepa')) ? fs.readdirSync(path.join(baseDir, 'sepa')) : []
         const cb = fs.existsSync(path.join(baseDir, 'cb')) ? fs.readdirSync(path.join(baseDir, 'cb')) : []
         
-        res.json({
-            success: true,
-            data: {
-                invoices,
-                sepa,
-                cb
-            }
-        })
+        const data = {
+            invoices,
+            sepa,
+            cb
+        }
+        
+        return this.formatResponse(res, data, "Liste des fichiers récupérée")
     }
 }
