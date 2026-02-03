@@ -1,22 +1,23 @@
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
+import cron from 'node-cron'
 import { env } from './config/env'
 import { ConnectAdapter } from './infrastructure/adapters/connect.adapter'
 import { FileGenerator } from './infrastructure/generators/file.generator'
 import { JsonTransactionRepository } from './infrastructure/repositories/json.repository'
 import { PaymentService } from './application/payment.service'
 import { PaymentController } from './presentation/payment.controller'
-import { FileController } from './presentation/file.controller'
+import { FileController } from './presentation/file.controller';
+
 const app = express()
 app.use(cors())
 app.use(express.json())
-// Middleware de debug pour voir les requêtes
 app.use((req, res, next) => {
-    console.log(`📨 ${req.method} ${req.path}`)
-    console.log('Headers:', req.headers)
-    console.log('Body:', req.body)
-    next()
-})
+  console.log(`📨 ${req.method} ${req.path}`);
+  console.log("Headers:", req.headers);
+  console.log("Body:", req.body);
+  next();
+});
 app.use(PaymentController.unwrapConnect)
 
 // Injection des dépendances
@@ -29,7 +30,7 @@ const service = new PaymentService(
     transactionRepo,
 )
 const controller = new PaymentController(service)
-const fileController = new FileController()
+const fileController = new FileController();
 
 // --- Routes ---
 app.get('/ping', (req, res) =>
@@ -39,10 +40,10 @@ app.post('/trigger-sync', controller.triggerSync)
 app.post('/api/payment', controller.processUnit)
 app.get('/api/payment/:ref', controller.getStatus)
 
-app.get('/api/files/invoice/:filename', fileController.downloadInvoice)
-app.get('/api/files/sepa/:filename', fileController.downloadSepa)
-app.get('/api/files/cb/:filename', fileController.downloadCb)
-app.get('/api/files', fileController.listFiles)
+app.get("/api/files/invoice/:filename", fileController.downloadInvoice);
+app.get("/api/files/sepa/:filename", fileController.downloadSepa);
+app.get("/api/files/cb/:filename", fileController.downloadCb);
+app.get("/api/files", fileController.listFiles);
 
 // --- Lancement ---
 app.listen(env.BANK_PORT, async () => {
@@ -54,13 +55,57 @@ app.listen(env.BANK_PORT, async () => {
 
     // Enregistrement asynchrone auprès de Connect
     await connectAdapter.registerService([
-        { path: 'trigger-sync', method: 'POST', permission: 0 },
-        { path: 'api/payment', method: 'POST', permission: 0 },
-        { path: 'api/payment/{ref}', method: 'GET', permission: 0 },
-        { path: 'ping', method: 'GET', permission: 0 },
-        { path: 'api/files', method: 'GET', permission: 0 },
-        { path: 'api/files/invoice/{filename}', method: 'GET', permission: 0 },
-        { path: 'api/files/sepa/{filename}', method: 'GET', permission: 0 },
-        { path: 'api/files/cb/{filename}', method: 'GET', permission: 0 },
-    ])
+      { path: "trigger-sync", method: "POST", permission: 0 },
+      { path: "api/payment", method: "POST", permission: 0 },
+      { path: "api/payment/{ref}", method: "GET", permission: 0 },
+      { path: "ping", method: "GET", permission: 0 },
+      { path: "api/files", method: "GET", permission: 0 },
+      { path: "api/files/invoice/{filename}", method: "GET", permission: 0 },
+      { path: "api/files/sepa/{filename}", method: "GET", permission: 0 },
+      { path: "api/files/cb/{filename}", method: "GET", permission: 0 },
+    ]); 
+
+    if (env.CRON_ENABLED === 'true') {
+        const cronSchedule = '*/10 * * * * *' 
+
+        console.log(`CRON activé avec la planification : ${cronSchedule}`)
+        
+        if (!cron.validate(cronSchedule)) {
+            console.error(`❌ Format CRON invalide : ${cronSchedule}`)
+            console.error(`   Format attendu : "minute heure jour mois jour_semaine"`)
+            console.error(`   Exemple : "0 2 1 * *" (1er de chaque mois à 2h)`)
+        } else {
+            cron.schedule(cronSchedule, async () => {
+                const executionDate = new Date().toISOString().split('T')[0]
+                console.log(``)
+                console.log(`╔════════════════════════════════════════════════════╗`)
+                console.log(`║      DÉCLENCHEMENT AUTOMATIQUE DU BATCH MENSUEL    ║`)
+                console.log(`║   Date d'exécution : ${executionDate}              ║`)
+                console.log(`╚════════════════════════════════════════════════════╝`)
+                console.log(``)
+
+                try {
+                    const result = await service.runMonthlyProcess(executionDate)
+                    console.log(`Batch mensuel terminé avec succès`)
+                    console.log(`Résultat :`, result)
+                } catch (error: any) {
+                    console.error(`Erreur lors du batch mensuel :`, error.message)
+                }
+            })
+
+            console.log(`Planification CRON configurée`)
+            console.log(`   Prochaine exécution : ${getNextCronExecution(cronSchedule)}`)
+        }
+    } else {
+        console.log(`⏸CRON désactivé (CRON_ENABLED=${env.CRON_ENABLED})`)
+        console.log(`   Pour activer le batch automatique, définir CRON_ENABLED=true dans .env`)
+    }
 })
+
+function getNextCronExecution(schedule: string): string {
+    try {
+        return "Calculé par node-cron (voir logs au démarrage)"
+    } catch (e) {
+        return "Non calculable"
+    }
+}

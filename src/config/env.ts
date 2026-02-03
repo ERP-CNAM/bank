@@ -9,4 +9,6 @@ export const env = {
     BANK_SERVICE_NAME: process.env.BANK_SERVICE_NAME,
     BANK_SERVICE_VERSION: process.env.BANK_SERVICE_VERSION,
     SERVICE_HOST: process.env.SERVICE_HOST,
+    CRON_ENABLED: process.env.CRON_ENABLED,
+    CRON_SCHEDULE: process.env.CRON_SCHEDULE
 }
